@@ -1,0 +1,11 @@
+# personal data: never commit
+resume.txt
+rules.json
+seen.json
+scores.json
+emailed.json
+email_log.json
+digest.log
+*.tmp
+__pycache__/
+cache/

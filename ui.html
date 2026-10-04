@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Finder</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1a1d23; --muted:#667085; --line:#e4e7ec; --accent:#2563eb; --new:#16a34a; --danger:#dc2626; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1115; --card:#181b22; --text:#e6e8ec; --muted:#98a2b3; --line:#2a2f3a; --accent:#60a5fa; --new:#4ade80; --danger:#f87171; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  h1 { font-size:22px; margin:0; }
+  .stats { color:var(--muted); font-size:13px; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  input[type=search] { flex:1; min-width:200px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--text); font-size:15px; }
+  button { padding:8px 12px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--text); cursor:pointer; font-size:13px; }
+  button:hover { border-color:var(--accent); }
+  button.danger:hover { border-color:var(--danger); color:var(--danger); }
+  label.toggle { display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px; }
+  .card a { color:var(--text); font-weight:600; text-decoration:none; font-size:16px; }
+  .card a:hover { color:var(--accent); }
+  .meta { color:var(--muted); font-size:13px; margin:4px 0 10px; }
+  .badge { display:inline-block; font-size:11px; font-weight:700; color:var(--new); border:1px solid var(--new); border-radius:999px; padding:0 7px; margin-left:6px; vertical-align:2px; }
+  .actions { display:flex; gap:6px; flex-wrap:wrap; }
+  details { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 16px; margin-bottom:16px; }
+  summary { cursor:pointer; font-weight:600; }
+  .chip { display:inline-flex; align-items:center; gap:4px; border:1px solid var(--line); border-radius:999px; padding:2px 4px 2px 10px; margin:4px 4px 0 0; font-size:13px; }
+  .chip button { border:none; padding:0 6px; background:none; color:var(--muted); }
+  .empty { color:var(--muted); text-align:center; padding:40px 0; }
+  .score { display:inline-block; min-width:36px; text-align:center; font-weight:700; font-size:13px; color:#fff; border-radius:8px; padding:2px 6px; margin-right:8px; vertical-align:1px; }
+  .why { font-size:13px; margin:-4px 0 4px; }
+  .why { color:var(--muted); margin-bottom:10px; }
+  .ai { border:1px solid var(--accent); border-radius:10px; padding:10px 12px; margin:6px 0 12px; font-size:14px; }
+  .ai-head { font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--accent); margin-bottom:4px; }
+  .ai ul { margin:4px 0 0; padding-left:20px; color:var(--danger); }
+  select { padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--text); font-size:13px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Job Finder</h1>
+      <div class="stats" id="stats">Loading…</div>
+    </div>
+    <button id="refresh">↻ Refresh sources</button>
+  </header>
+
+  <div class="bar">
+    <input type="search" id="q" placeholder="Filter by title or company (e.g. python, payments, tether)">
+    <select id="sort"><option value="score">Best match</option><option value="date">Newest</option></select>
+    <label class="toggle"><input type="checkbox" id="newOnly"> New only</label>
+    <button id="markAll">✓ Mark all shown as seen</button>
+  </div>
+
+  <details id="rulesBox">
+    <summary>Blocked companies &amp; phrases</summary>
+    <div id="rules"></div>
+  </details>
+
+  <div id="list"><div class="empty">Fetching jobs from Himalayas and We Work Remotely… (about 30 seconds)</div></div>
+</main>
+
+<script>
+let data = { jobs: [], dropped: {}, rules: { companies: [], phrases: [] } };
+const $ = id => document.getElementById(id);
+
+async function load() {
+  let res;
+  try {
+    res = await (await fetch("/api/jobs")).json();
+  } catch (e) {
+    $("list").replaceChildren(el("div", { class: "empty" }, "Can't reach the job finder. Is  python3 ~/job-search/jobs.py --ui  still running?"));
+    return;
+  }
+  if (res.loading) { setTimeout(load, 2000); return; }
+  data = res;
+  render();
+}
+
+async function post(path, body) {
+  try {
+    const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    alert(`That didn't work (${e.message}). Is the job finder still running?`);
+    return null;
+  }
+}
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  Object.entries(attrs).forEach(([k, v]) => k.startsWith("on") ? node.addEventListener(k.slice(2), v) : node.setAttribute(k, v));
+  children.forEach(c => node.append(c));  // strings become text nodes, so job text can't inject HTML
+  return node;
+}
+
+async function setSeen(jobs, seen) {
+  await post("/api/seen", { keys: jobs.map(j => j.key), seen });
+  jobs.forEach(j => j.new = !seen);
+  render();
+}
+
+function visibleJobs() {
+  const q = $("q").value.trim().toLowerCase();
+  return data.jobs.filter(j =>
+    (!$("newOnly").checked || j.new) &&
+    (!q || (j.title + " " + j.company).toLowerCase().includes(q)))
+    .sort((a, b) => $("sort").value === "score" ? b.score - a.score : b.posted - a.posted);
+}
+
+function render() {
+  const jobs = visibleJobs();
+  const dropped = Object.values(data.dropped).reduce((a, b) => a + b, 0);
+  const newCount = data.jobs.filter(j => j.new).length;
+  $("stats").textContent = `${data.jobs.length} jobs · ${newCount} new · ${dropped} auto-dropped (location-locked, AI interviews, blocked)`;
+
+  $("list").replaceChildren(...(jobs.length ? jobs.map(card) : [el("div", { class: "empty" }, "No jobs match.")]));
+
+  const chip = (field, value) => el("span", { class: "chip" }, value,
+    el("button", { title: "Unblock", onclick: async () => { await post("/api/unblock", { field, value }); load(); } }, "×"));
+  $("rules").replaceChildren(
+    el("div", { class: "meta" }, "Companies:"), ...data.rules.companies.map(c => chip("companies", c)),
+    el("div", { class: "meta" }, "Phrases:"), ...data.rules.phrases.map(p => chip("phrases", p)));
+}
+
+function card(j) {
+  const date = new Date(j.posted * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const safeLink = /^https?:\/\//i.test(j.link || "") ? j.link : "#";  // never a javascript: URL from a job board
+  const title = el("a", { href: safeLink, target: "_blank", rel: "noopener noreferrer" }, j.title || "(untitled)");
+  const ai = j.engine === "qwen";
+  const color = j.score >= 75 ? "#16a34a" : j.score >= 55 ? "#ca8a04" : "#9ca3af";
+  const badge = el("span", { class: "score", style: `background:${color}`, title: ai ? "AI match score" : "Quick keyword score" },
+    ai ? String(j.score) : `~${j.score}`);
+  let node;
+  const aiButton = el("button", { onclick: async (e) => {
+    e.target.disabled = true; e.target.textContent = "Asking AI… (~10s)";
+    try {
+      const res = await post("/api/score", { key: j.key });
+      if (res && res.error) alert(res.error);
+      else if (res && res.engine === "qwen") Object.assign(j, res);
+      else if (res) alert("AI is unavailable right now (is Ollama running?). Showing the keyword score.");
+    } finally {
+      node.replaceWith(card(j));  // always: update in place, and never leave the button stuck
+    }
+  } }, ai ? "✨ AI checked" : "✨ AI match");
+  if (ai) aiButton.disabled = true;
+  const details = ai
+    ? el("div", { class: "ai" },
+        el("div", { class: "ai-head" }, `AI review · ${j.score}/100`),
+        el("div", {}, j.why),
+        ...(j.missing.length ? [el("div", { class: "ai-head", style: "margin-top:8px" }, "Missing"),
+                                el("ul", {}, ...j.missing.map(m => el("li", {}, m)))] : []))
+    : el("div", { class: "why" }, j.why + (j.missing.length ? ` · Missing: ${j.missing.join(", ")}` : ""));
+  node = el("div", { class: "card" },
+    el("div", {}, badge, title, ...(j.new ? [el("span", { class: "badge" }, "NEW")] : [])),
+    el("div", { class: "meta" }, `${j.company} · ${j.where} · ${date} · ${j.source}`),
+    details,
+    el("div", { class: "actions" },
+      aiButton,
+      el("button", { onclick: () => setSeen([j], j.new) }, j.new ? "✓ Mark seen" : "Mark unseen"),
+      ...(j.company ? [el("button", { class: "danger", onclick: async () => { if (await post("/api/block", { company: j.company })) load(); } }, `Block ${j.company}`)] : []),
+      el("button", { class: "danger", onclick: async () => {
+        const phrase = prompt(`Phrase from this posting to block everywhere (e.g. "us hours", "german"):`);
+        if (phrase && phrase.trim().length < 2) alert("Use at least 2 characters, or it would hide everything.");
+        else if (phrase && await post("/api/block", { phrase })) load();
+      } }, "Block phrase…")));
+  return node;
+}
+
+$("q").addEventListener("input", render);
+$("newOnly").addEventListener("change", render);
+$("sort").addEventListener("change", render);
+$("markAll").addEventListener("click", () => {
+  const jobs = visibleJobs().filter(j => j.new);
+  if (jobs.length && confirm(`Mark ${jobs.length} shown jobs as seen?`)) setSeen(jobs, true);
+});
+$("refresh").addEventListener("click", async () => {
+  $("list").replaceChildren(el("div", { class: "empty" }, "Refreshing sources… (about 30 seconds)"));
+  await post("/api/refresh");
+  setTimeout(load, 1000);
+});
+load();
+</script>
+</body>
+</html>

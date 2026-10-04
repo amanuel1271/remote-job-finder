@@ -1,0 +1,6 @@
+Jane Doe — Backend Software Engineer, Seoul (open to remote). 5 years.
+Skills: Python, FastAPI, Node.js, TypeScript, PostgreSQL, Redis, Docker, AWS, Kubernetes, REST, WebSocket.
+Experience:
+- Backend Engineer, Example Payments Co (2021–present): payment APIs in Python/FastAPI and PostgreSQL; Redis caching; event-driven services on AWS.
+- Software Engineer, Example Startup (2019–2021): Node.js/TypeScript microservices, CI/CD, Docker.
+Copy this file to resume.txt and replace it with your own resume text. resume.txt is gitignored.

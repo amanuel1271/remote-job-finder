@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>JOB_FINDER_EMAIL</key>
+		<string>you@example.com</string>
+	</dict>
+	<key>Label</key>
+	<string>com.example.jobfinder</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/opt/homebrew/bin/python3</string>
+		<string>/Users/YOU/job-search/jobs.py</string>
+		<string>--digest</string>
+	</array>
+	<key>StandardErrorPath</key>
+	<string>/Users/YOU/job-search/digest.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/YOU/job-search/digest.log</string>
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict>
+			<key>Hour</key>
+			<integer>9</integer>
+			<key>Minute</key>
+			<integer>0</integer>
+		</dict>
+		<dict>
+			<key>Hour</key>
+			<integer>18</integer>
+			<key>Minute</key>
+			<integer>0</integer>
+		</dict>
+	</array>
+</dict>
+</plist>
